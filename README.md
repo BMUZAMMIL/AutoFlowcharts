@@ -1,4 +1,4 @@
-# Build a Guide — Auto-Generating Flowchart System
+# Auto-Generating Flowchart System
 
 This is a complete, production-ready solution for **automatically generating interactive architecture flowcharts from source code**. It's designed to solve one of software engineering's most persistent problems: **documentation that goes stale the moment it's written**. Download the index.html and it contains all the details you'll need with the prompt for the agent to build the system for your projects. If you wish to build the system for another project, not your active project that agent is working on then simply add extra message before the prompt to build the system for the project "your project folder location". 
 
