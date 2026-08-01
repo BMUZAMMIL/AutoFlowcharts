@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build a Guide — Auto-Generating Flowchart System (Car Demo)</title>
+<style>
+  :root{
+    --bg:#0b1017; --panel:#111a24; --panel2:#16222f; --line:#223447;
+    --text:#e6eef6; --dim:#8fa3b8; --accent:#4dd0e1; --accent2:#7ec8ff;
+    --amber:#ffb74d; --red:#ef5350; --green:#66bb6a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font:15px/1.6 "Segoe UI",system-ui,sans-serif;
+    background-image:radial-gradient(1100px 550px at 15% -10%,rgba(77,208,225,.07),transparent 60%),
+      radial-gradient(900px 480px at 95% 5%,rgba(126,200,255,.06),transparent 55%),
+      radial-gradient(1000px 600px at 50% 110%,rgba(102,187,106,.05),transparent 60%);
+    background-attachment:fixed;}
+  a{color:var(--accent2);}
+  /* ── sticky nav ── */
+  header.top{position:sticky; top:0; z-index:50; background:rgba(11,16,23,.92); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line); padding:10px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;}
+  header.top .brand{font-weight:700; color:var(--accent); letter-spacing:.3px;}
+  header.top .brand span{color:var(--dim); font-weight:400;}
+  nav.top{display:flex; gap:14px; flex-wrap:wrap;}
+  nav.top a{color:var(--dim); text-decoration:none; font-size:14px;}
+  nav.top a:hover{color:var(--accent);}
+  main{max-width:none; margin:0 auto; padding:28px 20px 60px;}
+  section{margin:44px 0;}
+  h1{font-size:30px; line-height:1.25;}
+  h1 .sub{display:block; font-size:15px; color:var(--dim); font-weight:400; margin-top:8px;}
+  h2{font-size:22px; margin-bottom:12px; color:var(--accent); border-left:4px solid var(--accent); padding-left:10px;}
+  h3{font-size:16px; margin:16px 0 6px; color:var(--accent2);}
+  p{margin:8px 0; color:#c7d5e2;}
+  code{background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:1px 6px; font:13px Consolas,monospace; overflow-wrap:anywhere;}
+  pre{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; overflow:auto; font:13px Consolas,monospace; color:#bcd7ee;}
+  .tag{display:inline-block; padding:1px 5px; border-radius:4px; font-size:11px; vertical-align:1px;}
+  .ok{background:rgba(102,187,106,.15); color:var(--green); border:1px solid rgba(102,187,106,.4);}
+  /* ── hero ── */
+  .hero{display:flex; gap:24px; align-items:center; flex-wrap:wrap; margin:10px 0 4px;}
+  .hero .pills{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .hero .pills span{border:1px solid var(--line); background:var(--panel); border-radius:999px; padding:4px 12px; font-size:13px; color:var(--dim);}
+  /* ── demo panel ── */
+  .demo-panel{
+    position:relative;
+    background:rgba(255,255,255,.05) !important;
+    box-shadow:0 15px 15px rgba(0,0,0,.3) !important;
+    border-bottom:1px solid rgba(255,255,255,.1) !important;
+    border-top:1px solid rgba(255,255,255,.1) !important;
+    border-radius:8px;
+    padding:10px;
+    backdrop-filter:blur(15px) !important; -webkit-backdrop-filter:blur(15px) !important;
+    overflow:hidden;}
+  .demo-head{padding:14px 18px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:center; flex-wrap:wrap;}
+  .demo-head .lbl{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);}
+  .controls{display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:10px 18px; border-bottom:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.03); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);}
+  .controls label{font-size:13px; color:var(--dim); display:flex; align-items:center; gap:8px;}
+  input[type=range]{width:170px; accent-color:var(--accent);}
+  input[type=text]{background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:5px 10px; width:230px; font:13px inherit;}
+  input[type=text]:focus{outline:1px solid var(--accent);}
+  #depth-val{color:var(--accent); font-weight:700;}
+  #status{font-size:13px; color:var(--dim); padding:8px 18px; border-bottom:1px solid var(--line);}
+  #breadcrumb{font-size:13px; padding:8px 18px 0; color:var(--dim);}
+  #breadcrumb a{color:var(--accent2); text-decoration:none; margin-right:4px;}
+  #breadcrumb a:hover{text-decoration:underline;}
+  .demo-body{display:flex; min-height:300px;}
+  .depth-side{display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px 10px;
+    border-right:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.03); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); user-select:none;}
+  .depth-side button{width:40px; height:40px; border-radius:9px; border:1px solid var(--line);
+    background:var(--bg); color:var(--accent); font-size:22px; line-height:1; cursor:pointer;}
+  .depth-side button:hover{border-color:var(--accent); background:var(--panel);}
+  .depth-side button:disabled{opacity:.35; cursor:default; border-color:var(--line);}
+  #depth-side-val{font-size:24px; font-weight:700; color:var(--accent); line-height:1;}
+  .depth-side-lbl{font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:var(--dim);}
+  #arch-diagram{padding:18px; overflow:auto; min-height:260px; flex:1;
+    background:rgba(11,16,23,.3);
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.55), inset 0 0 0 1px rgba(148,163,184,.05);}
+  #pipeline-diagram{position:relative; overflow:hidden; border-radius:8px; padding:10px;
+    background:rgba(255,255,255,.05) !important;
+    box-shadow:0 15px 15px rgba(0,0,0,.3) !important;
+    border-bottom:1px solid rgba(255,255,255,.1) !important;
+    border-top:1px solid rgba(255,255,255,.1) !important;
+    backdrop-filter:blur(15px) !important; -webkit-backdrop-filter:blur(15px) !important;}
+  #arch-diagram svg{max-width:100%; height:auto; display:block; margin:0 auto;}
+  .diagram-zoom svg{transition:width .25s ease;}
+  .diagram-zoom.zoomed svg{width:160% !important; max-width:none !important;}
+  /* ── animated flowcharts: nodes fade in staggered, arrows flow, stars glow ──
+     ⚠️ animate opacity ONLY on .node — never transform: CSS transform overrides
+     Mermaid's SVG transform="translate(x,y)" attribute and nodes fly out of place. */
+  @keyframes nodeIn{from{opacity:0;} to{opacity:1;}}
+  @keyframes edgeFlow{to{stroke-dashoffset:-18;}}
+  @keyframes starGlow{0%,100%{filter:drop-shadow(0 0 2px rgba(255,214,79,.35));} 50%{filter:drop-shadow(0 0 9px rgba(255,214,79,.75));}}
+  #arch-diagram .node, #pipeline-diagram .node{animation:nodeIn .45s ease both;}
+  @media (prefers-reduced-motion: no-preference){
+    #arch-diagram .edgePaths path.flowchart-link, #pipeline-diagram .edgePaths path.flowchart-link{
+      stroke-dasharray:9 9; animation:edgeFlow .55s linear infinite;}
+  }
+  #arch-diagram .node:hover{filter:brightness(1.3);}
+  #arch-diagram .node rect, #arch-diagram .node polygon, #arch-diagram .node circle{transition:filter .15s ease;}
+  /* depth 2+ nested module/class/method/step cluster boxes — mermaid 11 nests <g class=cluster> per level, so
+     level-1 = module boxes (mod palette), level-2 = class boxes (cls), level-3 = method boxes (mth), level-4 = step (stp).
+     (subgraph ...:::classDef is NOT supported by mermaid 11 — it silently empties the diagram — hence CSS.
+     !important needed: the SVG's injected <style> (scoped to the render id) is later in document order.) */
+  #arch-diagram .cluster rect{fill:#16222f !important; stroke:#4a6a8a !important;}
+  #arch-diagram .cluster .cluster rect{fill:#1a2a3a !important; stroke:#5a8ab0 !important;}
+  #arch-diagram .cluster .cluster .cluster rect{fill:#14202a !important; stroke:#6a9ac0 !important;}
+  #arch-diagram .cluster .cluster .cluster .cluster rect{fill:#202a38 !important; stroke:#8ab0d0 !important;}
+  #arch-diagram .cluster-label{fill:#8fa3b8 !important; font-size:12px !important;}
+  #arch-diagram .cluster-label text, #arch-diagram .cluster-label span{fill:#8fa3b8 !important; color:#8fa3b8 !important;}
+  #arch-diagram .imp, #pipeline-diagram .imp{animation:starGlow 5s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){
+    #arch-diagram .node, #pipeline-diagram .node,
+    #arch-diagram .edgePaths path, #pipeline-diagram .edgePaths path,
+    #arch-diagram .imp, #pipeline-diagram .imp{animation:none !important;}
+  }
+  button.btn{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 12px; cursor:pointer; font-size:13px;}
+  button.btn:hover{border-color:var(--accent); color:var(--accent);}
+  /* ── tag cloud ── */
+  #tag-cloud{display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; padding:14px 18px;}
+  .tag-chip{cursor:pointer; text-decoration:none; color:var(--text); opacity:.9; transition:opacity .15s, transform .15s, border-color .15s, background .15s; line-height:1.3; border:1px solid rgba(255,255,255,.1) !important; border-radius:999px; padding:8px 13px; background:rgba(255,255,255,.05) !important; backdrop-filter:blur(15px); -webkit-backdrop-filter:blur(15px); box-shadow:0 15px 15px rgba(0,0,0,.3);}
+  .tag-chip:hover{opacity:1; transform:translateY(-1px); border-color:var(--accent); background:rgba(255,255,255,.1) !important;}
+  .tag-chip.active{opacity:1; border-color:var(--accent); background:rgba(255,255,255,.14) !important; box-shadow:0 15px 15px rgba(0,0,0,.3), 0 0 0 2px var(--accent);}
+  .tag-star{color:var(--amber);}
+  .demo-note{font-size:12px; color:var(--dim); padding:0 18px 12px;}
+  /* ── cards ── */
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:14px 0;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px;}
+  .card h3{margin-top:0;}
+  .card p{font-size:13.5px;}
+  ol.steps{margin:10px 0 10px 22px;}
+  ol.steps li{margin:8px 0;}
+  table{width:100%; border-collapse:collapse; margin:12px 0; font-size:14px;}
+  th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+  th{background:var(--panel2); color:var(--accent2);}
+  td code{background:none; border:none; padding:0;}
+  textarea{width:100%; height:420px; background:var(--bg); color:#bcd7ee; border:1px solid var(--line); border-radius:8px; padding:14px; font:12.5px Consolas,monospace; resize:vertical;}
+  details{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0;}
+  summary{cursor:pointer; font-weight:600; color:var(--accent2);}
+  footer{border-top:1px solid var(--line); margin-top:50px; padding:20px; text-align:center; color:var(--dim); font-size:13px;}
+  .note{background:rgba(255,183,77,.08); border:1px solid rgba(255,183,77,.35); border-radius:8px; padding:10px 14px; font-size:13.5px; color:#ffd9a0; margin:12px 0;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Build a Guide <span>· auto-generating flowchart system</span></div>
+  <nav class="top">
+    <a href="#demo">Demo</a>
+    <a href="#how">How it works</a>
+    <a href="#guide">Setup guide</a>
+    <a href="#why">Why it helps</a>
+    <a href="#prompt">The prompt</a>
+    <a href="#why-flowcharts">Why diagrams matter</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ══════════ HERO ══════════ -->
+  <section>
+    <h1>One prompt. One scanner. Diagrams that can't go stale.
+      <span class="sub">This single page has two parts: a <b>static demo</b> of the output — using <b>car parts</b> as the example domain, flowcharts and depth levels shown purely as examples — and the <b>prompt</b> at the bottom of the page, which is the real deliverable: paste it into any capable agent (Claude, ChatGPT, Codex, <a href="https://hermes-agent.nousresearch.com/#downloads" target="_blank" rel="noopener">Hermes</a>, OpenHuman…) and it builds the <b>working</b> scanner + generator + viewer for <i>your</i> codebase.</span>
+    </h1>
+    <div class="hero">
+      <div>
+        <p>The system scans a source codebase and produces interactive, depth-controlled architecture flowcharts automatically — no hand-drawn diagrams, no LLM calls in the pipeline, no docs that rot the day after they're written.</p>
+        <div class="pills">
+          <span>Zero-dependency scanner</span><span>Zero LLM cost</span><span>~130 ms warm regen</span><span>Depth 1–5 on demand</span><span>Works from file://</span><span>GitHub Pages-ready</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ DEMO ══════════ -->
+  <section id="demo">
+    <h2>Live demo — the Car system</h2>
+    <p>This is the <b>viewer</b>: exactly what the system generates. The demo dataset models a car's parts as the <b>top layer</b> of a fictional app — <code>engine</code>, <code>transmission</code>, <code>brakes</code> … — and the deeper levels show the parts that build each main part. Play with it:</p>
+    <div class="note" style="margin-top:4px">⚠️ <b>This is a static example only.</b> The car data is hand-authored sample content — nothing here is scanned from real files, and the demo won't change as your project changes. <b>The prompt at the bottom of this page</b> is what actually builds the real, auto-generating system for your own codebase.</div>
+
+    <div class="demo-panel">
+      <div class="demo-head">
+        <span class="lbl">Navigation · click a part</span>
+        <div id="tag-cloud"></div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="depth-btn" type="button" title="change depth (cycles 1-5)">Depth 1</button>
+        <input type="text" id="search" placeholder="filter by name or description…">
+        <button class="btn" id="zoom" type="button">🔍 Zoom</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--dim)">click a module to drill in · deep-link any view: <code>#system=engine&node=engine/engine.ts&depth=5</code></span>
+      </div>
+      <div id="breadcrumb">Home</div>
+      <div id="status">Depth 1 · loading…</div>
+      <div class="demo-body">
+        <aside class="depth-side" aria-label="depth controls">
+          <button id="depth-minus" type="button" title="shallower">−</button>
+          <span id="depth-side-val">1</span>
+          <span class="depth-side-lbl">depth</span>
+          <button id="depth-plus" type="button" title="deeper">+</button>
+        </aside>
+        <div id="arch-diagram" class="diagram-zoom"></div>
+      </div>
+      <div class="demo-note"><b>Depth auto-adjust:</b> the depth button and − / + buttons snap to the deepest level that actually has content — a module with no classes clamps to 1, a class with no methods clamps to 2, a method with no internals clamps to 3, steps without effects clamp to 4. Selecting a part always starts at level 1.<br><br>⚠️ <b>This is just an example of the final product.</b> The car parts here are the top layer of a fictional app — the deeper levels show the parts that build each main part. Your actual flowcharts — which systems exist and how deep they go — will depend entirely on <b>your</b> project.</div>
+    </div>
+  </section>
+
+  <!-- ══════════ HOW IT WORKS ══════════ -->
+  <section id="how">
+    <h2>How it works</h2>
+    <p>The pipeline has three moving parts and one data contract. This page is the third part — the demo data below it is exactly what part two emits for a real project.</p>
+    <div id="pipeline-diagram"></div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>1 · Scanner</h3>
+        <p>A zero-dependency Node script (<code>scan-and-generate.mjs</code>) walks your source tree with pure regex: imports, classes, methods, descriptions. No AST, no LLM, no API keys.</p>
+      </div>
+      <div class="card">
+        <h3>2 · Generator + cache</h3>
+        <p>Emits one data file (<code>js/arch-data.js</code>) — the single source of truth. An incremental <code>mtime+size</code> fingerprint cache makes re-runs ~130 ms; <code>--no-cache</code> forces a full rescan.</p>
+      </div>
+      <div class="card">
+        <h3>3 · Viewer</h3>
+        <p>A single HTML page (this one) renders tag cloud → depth button → Mermaid flowchart. Click to drill, search to filter, hash deep links for sharing. No build step, no backend.</p>
+      </div>
+    </div>
+
+    <h3>The renderer — Mermaid 11</h3>
+    <p>Every diagram on this page is drawn by <a href="https://mermaid.js.org" target="_blank" rel="noopener">Mermaid</a>, a free, MIT-licensed library that turns plain text into SVG diagrams — flowcharts, sequence diagrams, class diagrams and more. You write <code>engine.ts --> fuel-injection.ts</code> and Mermaid lays out and draws the chart in the browser. It loads from a CDN (<code>https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js</code>), needs no build step and no backend, and works straight from <code>file://</code> — which is exactly why the whole system is just static files you can open or publish anywhere. The prompt tells the agent to feed the scanned data to Mermaid and style it (custom palette, depth colors, flowing-edge animations), so every generated chart follows the same look.</p>
+
+    <h3>LLM-based generation — when dynamic scanning isn't possible</h3>
+    <p>Dynamic scanning is the default, but it has requirements: the project needs source code that a regex scan can capture. If those requirements aren't met — a small project, or a language the scan can't handle — the prompt supports <b>LLM-based generation</b> instead of stopping: it builds the same viewer in static mode, tells you that only static flowcharts are possible, and adds a <b>🔄 Regenerate flowcharts</b> button that redraws them using an API key you provide (e.g. Google AI Studio — Gemini 3.1 Flash). This path runs <b>only with your approval</b> — your key, your call; nothing ever calls out to an LLM without it, and the key never leaves your browser except to the provider you chose.</p>
+
+    <h3>The data contract (what the scanner produces)</h3>
+    <pre>{
+  "systems": [ { "id": "engine", "title": "Engine", "important": true,
+                 "modules": ["engine/engine.ts", "engine/fuel-injection.ts"] } ],
+  "nodes": {
+    "engine/engine.ts": {
+      "kind": "module", "label": "engine.ts", "desc": "Combustion core",
+      "imports": ["engine/fuel-injection.ts", "electrical/battery.ts"],
+      "classes": [
+        { "label": "Engine", "kind": "class", "methods": [ { "label": "start" }, { "label": "throttle" } ] }
+      ]
+    }
+  }
+}</pre>
+
+    <h3>Depth model</h3>
+    <table>
+      <tr><th>Level</th><th>Shows</th><th>Example (engine)</th></tr>
+      <tr><td><b>1</b></td><td>Top layer — the car's main parts: modules + import edges</td><td>engine.ts, fuel-injection.ts, ignition.ts</td></tr>
+      <tr><td><b>2</b></td><td>+ classes inside each module</td><td>Engine, CoolingSystem</td></tr>
+      <tr><td><b>3</b></td><td>+ methods inside each class</td><td>start(), throttle(), checkOil(), stop()</td></tr>
+      <tr><td><b>4</b></td><td>+ what each method does (internals)</td><td>start() → prime fuel pump, crank starter, fire ignition coils…</td></tr>
+      <tr><td><b>5</b></td><td>+ component-level effects of each step</td><td>prime fuel pump → battery.ts, wiring.ts (electrical)</td></tr>
+    </table>
+  </section>
+
+  <!-- ══════════ GUIDE ══════════ -->
+  <section id="guide">
+    <h2>Setup guide — build it for your project</h2>
+    <p>You don't write any of this by hand. Copy <a href="#prompt">the prompt</a>, paste it into any capable agent — Claude, ChatGPT, Codex, <a href="https://hermes-agent.nousresearch.com/#downloads" target="_blank" rel="noopener">Hermes</a>, OpenHuman… — and it builds the whole system. Then:</p>
+
+    <ol class="steps">
+      <li><b>Prereqs:</b> Node 18+ (any OS) and a codebase you want to map.</li>
+      <li>Copy <a href="#prompt">the prompt below</a> into any capable agent (Claude, ChatGPT, Codex, <a href="https://hermes-agent.nousresearch.com/#downloads" target="_blank" rel="noopener">Hermes</a>, OpenHuman…) — run it inside the project folder, or give it the project path.</li>
+      <li>The agent first <b>examines your project</b>: languages, structure, feasibility. If a regex scan is possible, it builds <code>scan-and-generate.mjs</code>, <code>explorer.html</code>, and the car demo dataset — open <code>explorer.html</code> to see it running.</li>
+      <li>If the project has no source code at all, the agent reports why instead of forcing a build. If the project is small (or its language can't be regex-scanned), the agent builds the <b>LLM-based generation system</b> instead — it informs you that only static flowcharts are possible and adds a <b>🔄 Regenerate flowcharts</b> button that redraws them on demand using an API key you provide (e.g. Google AI Studio — Gemini 3.1 Flash). The LLM path runs <b>only with your approval</b> — nothing calls out to an LLM without it.</li>
+      <li>It then runs the scanner against your real code:</li>
+    </ol>
+    <pre>node scan-and-generate.mjs /path/to/your/src</pre>
+    <ol class="steps" start="6">
+      <li>Open <code>explorer.html</code> — your project is now a live, navigable architecture map. Regenerate whenever the code changes (incremental cache keeps it ~130 ms).</li>
+      <li>Publish: drop the folder on GitHub Pages, or open it straight from disk — it's fully static.</li>
+    </ol>
+
+    <div class="note">💡 The prompt is a three-phase agent guide: <b>examine → build → verify</b>. Any agent that can read your project can run it — the scanner's regex rules are derived from the language it finds (TS/JS, Python, Go, …), and the 11 acceptance criteria are verified against your real output. The car demo is the bundled example the agent builds so the viewer works even before the real scan.</div>
+
+    <h3>Customizing</h3>
+    <table>
+      <tr><th>Want to…</th><th>Change</th></tr>
+      <tr><td>Scan a different language</td><td>Phase 0 of the prompt (the agent derives regex rules per language: Python <code>def</code>/<code>class</code>, Go <code>func</code>…)</td></tr>
+      <tr><td>Rename systems / star important ones</td><td><code>title</code> + <code>important</code> fields in the data (or the generator's map)</td></tr>
+      <tr><td>Skip folders</td><td>Ignore list in the scanner (<code>node_modules</code>, <code>dist</code>…)</td></tr>
+      <tr><td>Bigger overviews</td><td>The 60-module cap constant in the viewer</td></tr>
+    </table>
+  </section>
+
+  <!-- ══════════ WHY ══════════ -->
+  <section id="why">
+    <h2>Why it helps</h2>
+    <div class="grid">
+      <div class="card"><h3>📄 Can't go stale</h3><p>Hand-drawn architecture docs rot the day they're written. These diagrams regenerate from the code itself — the picture <i>is</i> the current state, always.</p></div>
+      <div class="card"><h3>🪙 Zero running cost</h3><p>Pure regex scanner: no API keys, no tokens, no monthly bill. Regeneration costs ~130 ms of CPU on a warm cache. (The optional LLM fallback is the only exception — and it uses an API key you supply, only when you approve.)</p></div>
+      <div class="card"><h3>🎚 Depth on demand</h3><p>One button sets the detail level: overview → classes → methods → method internals → component effects. Auto-adjust clamps to what actually exists, and opening a system always starts at the overview.</p></div>
+      <div class="card"><h3>🖱 Explore, don't read</h3><p>Click any module to expand only that branch, search to filter, breadcrumb to go back. Deep links share any exact view.</p></div>
+      <div class="card"><h3>📦 Zero infra</h3><p>Plain HTML + JS + the Mermaid CDN. Runs from <code>file://</code>, hosts on GitHub Pages, embeds in a static site.</p></div>
+      <div class="card"><h3>🔗 Linkable</h3><p><code>#system=engine&node=engine/engine.ts&depth=5</code> opens any view directly — perfect for READMEs, tickets, and review comments.</p></div>
+    </div>
+  </section>
+
+  <!-- ══════════ PROMPT ══════════ -->
+  <section id="prompt">
+    <h2>The prompt — builds the real system</h2>
+    <p>This is the deliverable. Copy it into any capable agent (Claude, ChatGPT, Codex, <a href="https://hermes-agent.nousresearch.com/#downloads" target="_blank" rel="noopener">Hermes</a>, OpenHuman…) in an empty project folder, and it produces the <b>working</b> system — scanner, generator, viewer, and the same car demo so you can verify the build before pointing it at your own code. It's self-contained: complete spec plus acceptance criteria to verify against.</p>
+    <button class="btn" id="copy-btn" type="button" style="margin-bottom:10px">📋 Copy prompt to clipboard</button>
+    <textarea id="prompt-text" readonly spellcheck="false"></textarea>
+  </section>
+
+  <!-- ══════════ WHY FLOWCHARTS MATTER ══════════ -->
+  <section id="why-flowcharts">
+    <h2>Why flowcharts matter — and how they make you build better</h2>
+    <p>Code is the most detailed description of a system ever written — which is exactly why it hides the big picture. A flowchart is the big picture: one glance at a diagram shows what a hundred files only reveal after hours of reading. Here's what that buys you in practice.</p>
+
+    <h3>🗺 See the real shape of your system</h3>
+    <p>Every project has a plan in someone's head and a reality in the code — and those two drift apart the moment the plan is written. An auto-generated flowchart can't drift: it <i>is</i> the code, drawn as a map. You see at a glance what depends on what, where the layers are, and whether the architecture you designed actually survived contact with the codebase.</p>
+
+    <h3>🎯 Find what to optimize</h3>
+    <ul>
+      <li><b>Hot modules</b> — a module many others import. Every change to it ripples outward; it's the highest-risk, highest-value place to invest (stabilize its API, split it, or put a cache in front of it).</li>
+      <li><b>Cycles</b> — A imports B and B imports A. Circular dependencies break clean layering and signal a missing abstraction; the diagram shows them as loops you can't unsee.</li>
+      <li><b>God modules</b> — one module with dozens of classes or hundreds of methods: split candidates, found at depth 3 in one click.</li>
+      <li><b>Dead code</b> — modules nothing imports: the diagram lists them for deletion.</li>
+      <li><b>Layering violations</b> — infrastructure leaking into everything, or the database importing the UI. The overview exposes the boundaries you thought you had.</li>
+    </ul>
+
+    <h3>🏗 Build systems correctly from day one</h3>
+    <ul>
+      <li><b>Before you write a feature</b>, check the diagram for everything it touches. If the change reaches into a hot module or crosses a layer boundary, that's a design decision — make it on purpose, not by accident.</li>
+      <li><b>After a refactor</b>, regenerate and diff the diagram. New edges you didn't intend are the first, cheapest signal that an abstraction is wrong.</li>
+      <li><b>Onboarding</b> — a new developer reads the map in five minutes and finds the right file in five more, instead of spelunking for a week.</li>
+      <li><b>Code review</b> — review the diff against the diagram: does the change respect the architecture the picture shows?</li>
+      <li><b>Depth on demand</b> — the same map serves the architect (overview), the implementer (classes and methods), and the debugger (method internals and component effects). One system, five zoom levels, no separate docs to keep in sync.</li>
+    </ul>
+
+    <p><b>In one sentence:</b> a flowchart generated from the code gives you a map of the city that actually got built — so you can optimize the right streets, and never accidentally route a highway through someone's living room.</p>
+  </section>
+
+</main>
+
+<footer>
+  Build a Guide — auto-generating flowchart system · demo data: car parts · Mermaid 11 · single-file page, works offline · <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noopener">Hermes Agent on GitHub ↗</a> · <a href="#demo">back to demo ↑</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DEMO DATA — car parts (what scan-and-generate.mjs would emit)
+   ═══════════════════════════════════════════════════════════ */
+const ARCH_DATA = {
+  generatedAt: '2026-07-31 (demo dataset — hand-authored, no real project)',
+  systems: [
+    { id:'engine',      title:'Engine',          important:true,  desc:'Converts fuel into rotation',             modules:['engine/engine.ts','engine/fuel-injection.ts','engine/ignition.ts'] },
+    { id:'transmission',title:'Transmission',    important:false, desc:'Gearbox, clutch and torque conversion',   modules:['transmission/transmission.ts','transmission/clutch.ts'] },
+    { id:'drivetrain',  title:'Drivetrain',      important:false, desc:'Carries torque from gearbox to wheels',   modules:['drivetrain/driveshaft.ts','drivetrain/differential.ts','drivetrain/wheels.ts'] },
+    { id:'brakes',      title:'Brakes',          important:true,  desc:'Deceleration and ABS',                    modules:['brakes/brakes.ts','brakes/abs.ts'] },
+    { id:'suspension',  title:'Suspension',      important:false, desc:'Ride, damping and wheel control',         modules:['suspension/suspension.ts'] },
+    { id:'electrical',  title:'Electrical',      important:true,  desc:'Power generation, storage and wiring',    modules:['electrical/battery.ts','electrical/wiring.ts'] },
+    { id:'infotainment',title:'Infotainment',    important:false, desc:'Head unit, audio and display',            modules:['infotainment/head-unit.ts','infotainment/audio.ts'] },
+    { id:'body',        title:'Body & Chassis',  important:false, desc:'Structure, panels and crash absorption',  modules:['body/chassis.ts','body/panels.ts'] }
+  ],
+  nodes: {
+    'engine/engine.ts':        { id:'engine/engine.ts', kind:'module', label:'engine.ts', desc:'Combustion core: throttle, oil, cooling', imports:['engine/fuel-injection.ts','engine/ignition.ts','electrical/battery.ts','drivetrain/driveshaft.ts'], classes:[
+      { label:'Engine', kind:'class', desc:'Combustion core', methods:[
+        { label:'start', steps:[
+          { label:'prime fuel pump', effects:['electrical/battery.ts','electrical/wiring.ts'] },
+          { label:'crank starter', effects:['electrical/battery.ts'] },
+          { label:'fire ignition coils', effects:['engine/ignition.ts'] },
+          { label:'monitor oil pressure', effects:['infotainment/head-unit.ts'] } ] },
+        { label:'throttle', steps:[{ label:'open throttle plate' },{ label:'adjust fuel trim' }] },
+        { label:'checkOil', steps:[{ label:'read dipstick' },{ label:'compare to min/max' }] },
+        { label:'stop', steps:[{ label:'cut fuel supply' },{ label:'kill ignition' }] } ] },
+      { label:'CoolingSystem', kind:'class', desc:'Radiator + fan loop', methods:[] } ]},
+    'engine/fuel-injection.ts':{ id:'engine/fuel-injection.ts', kind:'module', label:'fuel-injection.ts', desc:'Injects metered fuel into cylinders', imports:['electrical/battery.ts'], classes:[
+      { label:'FuelInjector', kind:'class', desc:'Per-cylinder injector', methods:[{label:'inject'},{label:'pulse'},{label:'trim'}] } ]},
+    'engine/ignition.ts':      { id:'engine/ignition.ts', kind:'module', label:'ignition.ts', desc:'Sparks the air-fuel mix', imports:['electrical/battery.ts'], classes:[
+      { label:'IgnitionCoil', kind:'class', desc:'High-voltage spark generator', methods:[{label:'spark'},{label:'advance'}] } ]},
+    'transmission/transmission.ts':{ id:'transmission/transmission.ts', kind:'module', label:'transmission.ts', desc:'Gear selection and torque conversion', imports:['engine/engine.ts','drivetrain/driveshaft.ts'], classes:[
+      { label:'Transmission', kind:'class', desc:'Gearbox', methods:[{label:'shift', steps:[{label:'disengage clutch'},{label:'select gear'},{label:'re-engage clutch'}]},{label:'reverse'},{label:'torqueConvert'}] },
+      { label:'TorqueConverter', kind:'class', desc:'Fluid coupling', methods:[{label:'lock'},{label:'slip'}] } ]},
+    'transmission/clutch.ts':  { id:'transmission/clutch.ts', kind:'module', label:'clutch.ts', desc:'Engages / disengages engine power', imports:['engine/engine.ts','transmission/transmission.ts'], classes:[
+      { label:'Clutch', kind:'class', desc:'Friction coupling', methods:[{label:'engage'},{label:'disengage'}] } ]},
+    'drivetrain/driveshaft.ts':{ id:'drivetrain/driveshaft.ts', kind:'module', label:'driveshaft.ts', desc:'Spins torque to the differential', imports:['transmission/transmission.ts','drivetrain/differential.ts'], classes:[
+      { label:'DriveShaft', kind:'class', desc:'Torque tube', methods:[{label:'spin'},{label:'balance'}] } ]},
+    'drivetrain/differential.ts':{ id:'drivetrain/differential.ts', kind:'module', label:'differential.ts', desc:'Splits torque to the driven wheels', imports:['drivetrain/driveshaft.ts','drivetrain/wheels.ts'], classes:[
+      { label:'Differential', kind:'class', desc:'Torque splitter', methods:[{label:'distribute'},{label:'lock'}] } ]},
+    'drivetrain/wheels.ts':    { id:'drivetrain/wheels.ts', kind:'module', label:'wheels.ts', desc:'Rims and tires (leaf module — no classes)', imports:[], classes:[] },
+    'brakes/brakes.ts':        { id:'brakes/brakes.ts', kind:'module', label:'brakes.ts', desc:'Hydraulic braking system', imports:['brakes/abs.ts','electrical/battery.ts','drivetrain/wheels.ts'], classes:[
+      { label:'BrakeSystem', kind:'class', desc:'Master cylinder + calipers', methods:[{label:'apply'},{label:'release'},{label:'absPulse'}] } ]},
+    'brakes/abs.ts':           { id:'brakes/abs.ts', kind:'module', label:'abs.ts', desc:'Anti-lock wheel-speed control', imports:['brakes/brakes.ts'], classes:[
+      { label:'ABS', kind:'class', desc:'Wheel-slip regulator', methods:[{label:'pulse'},{label:'monitor'}] } ]},
+    'suspension/suspension.ts':{ id:'suspension/suspension.ts', kind:'module', label:'suspension.ts', desc:'Springs and dampers per corner', imports:['body/chassis.ts'], classes:[
+      { label:'ShockAbsorber', kind:'class', desc:'Hydraulic damper', methods:[{label:'damp'},{label:'adjust'}] },
+      { label:'Spring', kind:'class', desc:'Load-bearing coil', methods:[{label:'compress'},{label:'rebound'}] } ]},
+    'electrical/battery.ts':   { id:'electrical/battery.ts', kind:'module', label:'battery.ts', desc:'12V storage and charging', imports:[], classes:[
+      { label:'Battery', kind:'class', desc:'Energy storage', methods:[{label:'charge'},{label:'discharge'}] },
+      { label:'Alternator', kind:'class', desc:'Charge generator', methods:[{label:'charge'},{label:'regulate'}] } ]},
+    'electrical/wiring.ts':    { id:'electrical/wiring.ts', kind:'module', label:'wiring.ts', desc:'Harnesses, fuses and routing', imports:['electrical/battery.ts','infotainment/head-unit.ts'], classes:[
+      { label:'Harness', kind:'class', desc:'Cable routing', methods:[{label:'route'},{label:'fuse'}] } ]},
+    'infotainment/head-unit.ts':{ id:'infotainment/head-unit.ts', kind:'module', label:'head-unit.ts', desc:'Touchscreen, radio and nav', imports:['electrical/battery.ts','infotainment/audio.ts'], classes:[
+      { label:'HeadUnit', kind:'class', desc:'Infotainment brain', methods:[{label:'playMedia'},{label:'navigate'},{label:'connect'}] },
+      { label:'Display', kind:'class', desc:'Touch panel', methods:[] } ]},
+    'infotainment/audio.ts':   { id:'infotainment/audio.ts', kind:'module', label:'audio.ts', desc:'Amplification and speakers', imports:['infotainment/head-unit.ts','electrical/battery.ts'], classes:[
+      { label:'Amplifier', kind:'class', desc:'Speaker driver', methods:[{label:'amplify'},{label:'mute'}] } ]},
+    'body/chassis.ts':         { id:'body/chassis.ts', kind:'module', label:'chassis.ts', desc:'Structural frame and crash zones', imports:['suspension/suspension.ts','drivetrain/driveshaft.ts'], classes:[
+      { label:'Chassis', kind:'class', desc:'Load-bearing frame', methods:[{label:'support'},{label:'absorb'}] } ]},
+    'body/panels.ts':          { id:'body/panels.ts', kind:'module', label:'panels.ts', desc:'Doors, hood, fenders', imports:['body/chassis.ts'], classes:[
+      { label:'Panel', kind:'class', desc:'Body shell pieces', methods:[{label:'fit'},{label:'seal'}] } ]}
+  }
+};
+
+/* ═══════════════ viewer state + helpers ═══════════════ */
+const ROOT_COLORS = { engine:'#ffb74d', transmission:'#4dd0e1', drivetrain:'#4db6ac', brakes:'#ef5350',
+                      suspension:'#ffd54f', electrical:'#fff176', infotainment:'#ba68c8', body:'#f06292' };
+let state = { sysId:'engine', depth:1, stack:[] };
+let searchQuery = '';
+const IMPORTANT = {};
+ARCH_DATA.systems.forEach(s => { if (s.important) IMPORTANT[s.id] = true; });
+const MAX_OVERVIEW = 60;
+
+const chipsEl = document.getElementById('tag-cloud');
+const diagramEl = document.getElementById('arch-diagram');
+const statusEl = document.getElementById('status');
+const breadcrumbEl = document.getElementById('breadcrumb');
+const depthBtn = document.getElementById('depth-btn');
+const searchEl = document.getElementById('search');
+
+const esc = s => String(s).replace(/"/g, '&quot;');
+const nid = p => 'n' + p.replace(/[^A-Za-z0-9]/g, '_');
+const match = n => !searchQuery || ((n.label||'') + ' ' + (n.desc||'') + ' ' + (n.path||'')).toLowerCase().indexOf(searchQuery) !== -1;
+
+/* ── tag cloud ── */
+function buildCloud() {
+  const maxFiles = Math.max.apply(null, ARCH_DATA.systems.map(s => s.modules.length)) || 1;
+  chipsEl.innerHTML = '';
+  ARCH_DATA.systems.forEach(sys => {
+    const a = document.createElement('a');
+    a.className = 'tag-chip';
+    a.setAttribute('data-sys', sys.id);
+    a.href = '#system=' + encodeURIComponent(sys.id) + '&depth=1';
+    const size = 12 + Math.round(8 * (Math.log(sys.modules.length) / Math.log(maxFiles)));
+    a.style.fontSize = size + 'px';
+    a.style.color = ROOT_COLORS[sys.id] || '#8fa3b8';
+    a.title = (sys.title || sys.id) + ' — ' + sys.id + ' · ' + (sys.desc || '') + ' (' + sys.modules.length + ' modules)';
+    a.innerHTML = (IMPORTANT[sys.id] ? '<span class="tag-star">★ </span>' : '') + esc(sys.title || sys.id);
+    a.addEventListener('click', ev => {
+      ev.preventDefault();
+      state.sysId = sys.id; state.stack = [];
+      state.depth = 1; syncDepthUI();
+      selectTag(a); render();
+    });
+    chipsEl.appendChild(a);
+  });
+}
+function selectTag(el) {
+  const cur = chipsEl.querySelector('.tag-chip.active');
+  if (cur) cur.classList.remove('active');
+  if (el) el.classList.add('active');
+}
+
+/* ── depth auto-adjust ── */
+function maxDepthFor(focused, sys) {
+  if (!focused) {
+    let d2 = false;
+    sys.modules.slice(0, MAX_OVERVIEW).forEach(id => {
+      const m = ARCH_DATA.nodes[id];
+      if (m && m.classes && m.classes.length > 0 && m.classes.length <= 6) d2 = true;
+    });
+    return d2 ? 2 : 1;
+  }
+  const hasCls = focused.classes && focused.classes.length > 0;
+  if (!hasCls) return 1;
+  let hasMth = false, hasSteps = false, hasFx = false;
+  focused.classes.forEach(c => (c.methods || []).forEach(mt => {
+    if (mt && mt.label) hasMth = true;
+    if (mt && mt.steps && mt.steps.length) hasSteps = true;
+    if (mt && mt.steps && mt.steps.some(s => s.effects && s.effects.length)) hasFx = true;
+  }));
+  return hasFx ? 5 : hasSteps ? 4 : hasMth ? 3 : 2;
+}
+
+/* ── mermaid code builder ── */
+function buildMermaid() {
+  const sys = ARCH_DATA.systems.find(s => s.id === state.sysId);
+  if (!sys) return '';
+  const focused = state.stack.length ? ARCH_DATA.nodes[state.stack[0]] : null;
+  const lines = ['flowchart LR',
+    'classDef mod fill:#16222f,stroke:#4a6a8a,color:#e8f0f8',
+    'classDef cls fill:#1a2a3a,stroke:#5a8ab0,color:#cfe4f5',
+    'classDef mth fill:#14202a,stroke:#6a9ac0,color:#b8d8f0',
+    'classDef stp fill:#202a38,stroke:#8ab0d0,color:#d8e8f8',
+    'classDef fx  fill:#1d2030,stroke:#7e57c2,color:#d4c8f0',
+    'classDef imp fill:#2a2410,stroke:#d4af37,color:#ffe9a8',
+    'linkStyle default stroke:#7fb3d5,stroke-width:1.5px'];
+  const emit = [], edges = [];
+
+  const emitModule = (m, indent) => {
+    const hasCls = state.depth >= 2 && m.classes && m.classes.length > 0 && m.classes.length <= 6;
+    const pad = '  '.repeat(indent || 0);
+    if (hasCls) {
+      emit.push(pad + 'subgraph ' + nid(m.id) + '["' + esc(m.label) + '"]');
+      m.classes.forEach(c => emit.push(pad + '  ' + nid(m.id + '#' + c.label) + '["' + esc(c.label) + '"]:::cls'));
+      emit.push(pad + 'end');
+    } else {
+      const imp = sys.important ? ':::imp' : ':::mod';
+      emit.push(pad + nid(m.id) + '["' + esc(m.label) + '"]' + imp);
+    }
+  };
+
+  if (!focused) {
+    const mods = sys.modules.slice(0, MAX_OVERVIEW).filter(id => { const n = ARCH_DATA.nodes[id]; return n && match(n); });
+    mods.forEach(id => {
+      const m = ARCH_DATA.nodes[id]; if (!m) return;
+      emitModule(m, 0);
+      (m.imports || []).forEach(imp => { if (ARCH_DATA.nodes[imp] && mods.indexOf(imp) !== -1) edges.push(nid(m.id) + ' --> ' + nid(imp)); });
+    });
+  } else {
+    const m = focused;
+    emit.push('subgraph ' + nid(m.id) + '["' + esc(m.label) + '"]');
+    if (m.classes && state.depth >= 2) {
+      m.classes.forEach(c => {
+        const hasMth = state.depth >= 3 && c.methods && c.methods.length > 0;
+        if (!hasMth) { emit.push('  ' + nid(m.id + '#' + c.label) + '["' + esc(c.label) + '"]:::cls'); return; }
+        emit.push('  subgraph ' + nid(m.id + '#' + c.label) + '["' + esc(c.label) + '"]');
+        c.methods.forEach(mt => {
+          const hasSteps = state.depth >= 4 && mt.steps && mt.steps.length > 0;
+          if (!hasSteps) { emit.push('    ' + nid(m.id + '#' + c.label + '#' + mt.label) + '["' + esc(mt.label) + '()"]:::mth'); return; }
+          emit.push('    subgraph ' + nid(m.id + '#' + c.label + '#' + mt.label) + '["' + esc(mt.label) + '()"]');
+          mt.steps.forEach(s => {
+            const hasFx = state.depth >= 5 && s.effects && s.effects.length > 0;
+            if (!hasFx) { emit.push('      ' + nid(m.id + '#' + c.label + '#' + mt.label + '#' + s.label) + '["' + esc(s.label) + '"]:::stp'); return; }
+            emit.push('      subgraph ' + nid(m.id + '#' + c.label + '#' + mt.label + '#' + s.label) + '["' + esc(s.label) + '"]');
+            s.effects.forEach(fx => {
+              const t = ARCH_DATA.nodes[fx];
+              emit.push('        ' + nid(m.id + '#' + c.label + '#' + mt.label + '#' + s.label + '#' + fx) + '["' + esc(t ? t.label : fx) + '"]:::fx');
+            });
+            emit.push('      end');
+          });
+          emit.push('    end');
+        });
+        emit.push('  end');
+      });
+    }
+    emit.push('end');
+    (m.imports || []).forEach(imp => {
+      const n = ARCH_DATA.nodes[imp]; if (!n || !match(n)) return;
+      emitModule(n, 0);
+      edges.push(nid(m.id) + ' --> ' + nid(n.id));
+    });
+  }
+  return lines.concat(emit, edges).join('\n');
+}
+
+/* ── render ── */
+function render() {
+  const sys = ARCH_DATA.systems.find(s => s.id === state.sysId);
+  if (!sys) return;
+  const focused = state.stack.length ? ARCH_DATA.nodes[state.stack[0]] : null;
+  const maxD = maxDepthFor(focused, sys);
+  if (state.depth > maxD) state.depth = maxD;
+  syncDepthUI();
+
+  let crumb = '<a href="#" data-jump="home">Home</a> / <a href="#" data-jump="sys">' + esc(sys.title || sys.id) + '</a>';
+  if (focused) crumb += ' / <a href="#" data-jump="mod">' + esc(focused.label) + '</a>';
+  breadcrumbEl.innerHTML = crumb;
+  breadcrumbEl.querySelectorAll('a[data-jump]').forEach(el => {
+    el.addEventListener('click', ev => {
+      ev.preventDefault();
+      const j = el.getAttribute('data-jump');
+      if (j === 'home' || j === 'sys') { state.stack = []; state.depth = 1; depthBtn.textContent = 'Depth 1'; }
+      else if (j === 'mod') { state.stack = [state.stack[0]]; }
+      render();
+    });
+  });
+
+  statusEl.textContent = 'Depth ' + state.depth + ' · ' + sys.modules.length + ' modules in system · click a node to drill in'
+    + (sys.modules.length > MAX_OVERVIEW ? ' — showing first ' + MAX_OVERVIEW + ' modules' : '');
+
+  const code = buildMermaid();
+  if (!code) { diagramEl.innerHTML = '<p style="color:var(--dim)">no matching modules — clear the filter</p>'; return; }
+  diagramEl.innerHTML = '<p style="color:var(--dim);padding:20px">rendering…</p>';
+  mermaid.render('arch-chart', code).then(r => {
+    diagramEl.innerHTML = r.svg;
+    if (r.bindFunctions) r.bindFunctions(diagramEl);
+    diagramEl.querySelectorAll('.node').forEach((n, i) => { n.style.animationDelay = (i * 45) + 'ms'; });
+    diagramEl.querySelectorAll('.edgePaths path').forEach((p, i) => { p.style.animationDelay = (i * 70) + 'ms'; });
+    // cluster palette by nesting level — mermaid 11 renders all clusters as DOM siblings (no nesting), so the level
+    // is derived from layout containment: a class cluster's rect sits inside its module cluster's rect.
+    // level 1 = module boxes (mod), 2 = class boxes (cls), 3 = method boxes (mth), 4 = step boxes (stp)
+    const cboxes = Array.from(diagramEl.querySelectorAll('g.cluster')).map(g => ({ g, r: g.querySelector('rect') })).filter(c => c.r);
+    const cpal = [['#16222f', '#4a6a8a'], ['#1a2a3a', '#5a8ab0'], ['#14202a', '#6a9ac0'], ['#202a38', '#8ab0d0']];
+    cboxes.forEach(c => {
+      const b = c.r.getBoundingClientRect();
+      let lvl = 1;
+      cboxes.forEach(o => {
+        if (o === c) return;
+        const ob = o.r.getBoundingClientRect();
+        if (ob.x <= b.x + 1 && ob.y <= b.y + 1 && ob.x + ob.width >= b.x + b.width - 1 && ob.y + ob.height >= b.y + b.height - 1) lvl++;
+      });
+      const p = cpal[Math.min(lvl - 1, cpal.length - 1)];
+      c.r.style.fill = p[0];
+      c.r.style.stroke = p[1];
+    });
+  }).catch(e => { diagramEl.textContent = 'Mermaid render error: ' + e.message; });
+}
+
+/* ── deep links (#system=&node=&depth=) ── */
+function applyDeepLink() {
+  const params = {};
+  const h = location.hash.replace(/^#/, '');
+  if (!h) return false;
+  h.split('&').forEach(kv => {
+    const p = kv.split('=');
+    if (p.length === 2) params[decodeURIComponent(p[0])] = decodeURIComponent(p[1]);
+  });
+  if (!params.system) return false;
+  const sysHit = ARCH_DATA.systems.find(s => s.id === params.system);
+  if (!sysHit) return false;
+  state.sysId = sysHit.id;
+  const dd = parseInt(params.depth, 10);
+  if (dd >= 1 && dd <= 5) { state.depth = dd; syncDepthUI(); }
+  state.stack = [];
+  if (params.node && ARCH_DATA.nodes[params.node]) {
+    const nn = ARCH_DATA.nodes[params.node];
+    if (nn.kind === 'module' && sysHit.modules.indexOf(params.node) !== -1) state.stack = [params.node];
+  }
+  selectTag(chipsEl.querySelector('[data-sys="' + params.system + '"]'));
+  return true;
+}
+window.addEventListener('hashchange', () => { if (applyDeepLink()) render(); });
+
+/* ── controls ── */
+depthBtn.addEventListener('click', () => { state.depth = state.depth >= 5 ? 1 : state.depth + 1; syncDepthUI(); render(); });
+searchEl.addEventListener('input', () => { searchQuery = searchEl.value.trim().toLowerCase(); render(); });
+const zoomBtn = document.getElementById('zoom');
+zoomBtn.addEventListener('click', () => {
+  const zoomed = diagramEl.classList.toggle('zoomed');
+  zoomBtn.textContent = zoomed ? '↩ Reset zoom' : '🔍 Zoom';
+});
+
+/* ── depth sidebar (− / + buttons) — synced with the depth button ── */
+const depthMinus = document.getElementById('depth-minus');
+const depthPlus = document.getElementById('depth-plus');
+const depthSideVal = document.getElementById('depth-side-val');
+function syncDepthUI() {
+  depthBtn.textContent = 'Depth ' + state.depth;
+  depthSideVal.textContent = state.depth;
+  depthMinus.disabled = state.depth <= 1;
+  depthPlus.disabled = state.depth >= 5;
+}
+depthMinus.addEventListener('click', () => { if (state.depth > 1) { state.depth--; syncDepthUI(); render(); } });
+depthPlus.addEventListener('click', () => { if (state.depth < 5) { state.depth++; syncDepthUI(); render(); } });
+
+/* ── prompt text + copy ── */
+const PROMPT_TEXT = `You are an autonomous agent. Your job: build an auto-generating flowchart system for a target project — software that scans a source codebase and produces interactive, depth-controlled architecture flowcharts that never go stale.
+
+Work in three phases, in order:
+1. EXAMINE the project and judge feasibility.
+2. BUILD the system — but only if the examination says it's possible.
+3. RUN it against the real project and VERIFY the results.
+
+The pipeline you build must be zero-LLM (no API calls, no tokens), zero-dependency (Node.js standard library only for the scanner/generator), and static (plain HTML + JS + the Mermaid CDN for the viewer — no build step, no backend, works from file://).
+
+## Phase 0 — Examine the project first (feasibility assessment)
+
+Before writing any code, investigate the project you've been pointed at (your current working directory, or the path you were given). Report your findings:
+
+- Languages: what languages does the source use? Estimate codebase size (file counts per language).
+- Structure: where does the source live (src/, lib/, top-level .ts/.py files…)? What are the natural root namespaces (top-level source folders)?
+- Ignore list: node_modules, .git, dist, build, .next, coverage, lockfiles, binaries, vendored code.
+- Extraction rules for the language(s) found — regex-level, e.g.:
+  - TypeScript/JavaScript: ES import/export statements; class Name / class Name extends Base; method names inside class bodies; JSDoc first line.
+  - Python: from x import y / import x; class Name; def name; docstring first line.
+  - Go: import "x"; type Name struct/interface; func (r Receiver) Name; comment first line.
+  - Other languages: derive equivalents.
+- Feasibility gate:
+  - HARD STOP — do NOT build anything, just report: there is no source code at all (docs-only or binary-only repo). Explain what you found and why nothing can be mapped.
+  - SMALL PROJECT → build the LLM-based flowchart generation system (section 7) instead of the dynamic scanner. Inform the user explicitly — in the README and in a banner on the page — that only a static flowchart system can be built for their project and why (a small codebase, roughly under ~50 source files or a single-module structure, doesn't give the dynamic scanner enough structure to be worth it).
+  - CANNOT REGEX → if the language's structure can't be captured reasonably with regex, do NOT hard-stop: build the LLM-based flowchart generation system (section 7) — the regenerate button exists exactly for this case.
+  - Otherwise proceed with the full dynamic system (sections 1-6).
+
+## Phase 1 — Build the system
+
+### 1. Data model (the contract)
+Everything revolves around one JSON shape, emitted as js/arch-data.js:
+
+window.ARCH_DATA = {
+  generatedAt: "ISO timestamp",
+  systems: [ { id: "engine", title: "Engine", important: true, desc: "...", modules: ["engine/engine.ts", "..."] } ],
+  nodes: {
+    "engine/engine.ts": {
+      id: "engine/engine.ts", kind: "module", label: "engine.ts", path: "engine/engine.ts", desc: "...",
+      imports: ["engine/fuel-injection.ts"],
+      classes: [ { label: "Engine", kind: "class", desc: "...", methods: [
+        { label: "start", kind: "method", steps: [ { label: "prime fuel pump", effects: ["electrical/battery.ts"] }, "..." ] } ] } ]
+    }
+  }
+};
+
+### 2. Scanner — scan-and-generate.mjs (zero-dependency Node script)
+- Walks the target project root (accept the path as an argument; default to the script's folder).
+- Roots: treat each top-level source folder as a root system namespace; files directly at the root belong to a "<root>" system.
+- Ignore: the Phase-0 ignore list plus any binary/non-code files.
+- Extraction: use the Phase-0 rules for the project's language(s) — regex only, no LLM, no AST parser. Resolve imports to filesystem-relative paths (strip extensions, resolve ./ and ../, map to the module path if the file exists).
+- Every scanned file becomes a module node; files with zero imports and zero classes are still listed (leaf modules).
+
+### 3. Incremental cache
+- Per-file fingerprints { mtimeMs, size } in .arch-scan-cache.json next to the script.
+- On re-run, only re-read files whose fingerprint changed; reuse the rest.
+- --no-cache flag forces a full rescan.
+- Target: warm regeneration (unchanged tree) under 200 ms.
+
+### 4. Generator
+- Emits js/arch-data.js in the viewer folder, using the exact window.ARCH_DATA shape above.
+- Emit per-system title and important fields from the same script (data-driven presentation — the UI never hardcodes names).
+- Print a summary line: N systems / M files — warm|cold (X ms).
+
+### 5. Viewer — explorer.html (single self-contained page)
+Load js/arch-data.js + Mermaid 11 (one global mermaid.initialize; never per-chart %%{init}). Implement:
+- Tag cloud: one chip per system; font size proportional to module count (log scale, ~12-20 px); color by root namespace; star prefix for important systems; chip text = title || id; tooltip = Title — path · description. Clicking a chip opens that system.
+- Depth control (1-5: a depth button AND − / + buttons in a sidebar) with auto-adjust: level 1 = system overview (modules + import edges); level 2 = + classes; level 3 = + methods; level 4 = + method internals (the steps a method performs); level 5 = + component-level effects of those steps. Auto-adjust: if the current view has no content at the selected depth, clamp to the deepest level that does have content (button, sidebar, label and status line all reflect the clamped value). Opening/selecting a system always starts at level 1.
+- Search filter: text box filtering visible modules by name/description.
+- Click-to-drill: clicking a module re-renders with that module focused; breadcrumb (Home / system / module) navigates back.
+- Deep links: parse #system=<id>&node=<relPath>&depth=<1-5> (URL-decoded) on load and on hashchange; the boot sequence must call the renderer exactly once (a deep-linked page must never render twice at startup — double renders race Mermaid's concurrent-render guard and leave a blank diagram until the user interacts).
+- Overview cap: systems with more than 60 modules render the first 60 and append "— showing first 60 modules" to the status line.
+- Status line: Depth N · X modules in system · click a node to drill in.
+- Zoom button: a two-action toggle — its text/icon always shows the action the NEXT click will perform, so the user always knows both states: "🔍 Zoom" (off → click zooms in) ↔ "↩ Reset zoom" (zoomed → click resets to 100%). The label must switch on every click. Zoom by growing the SVG width (e.g. 160%, with max-width:none, so the scrollable container can actually scroll the zoomed chart); never by transform-scaling the container (a CSS transform doesn't extend the scrollable overflow area, so an overflow:auto container just clips it).
+- Interactivity glue: after injecting the rendered SVG, call bindFunctions on the container so Mermaid click handlers work.
+- Render id: never pass the container element's id as the mermaid.render id — if an element with that id already exists, Mermaid removes it from the DOM and the diagram vanishes. Use a unique id (e.g. "arch-chart") and inject r.svg into your own container.
+- Animations (pure CSS, no libraries): nodes fade in staggered (per-node animation-delay after render; animate opacity ONLY — never transform, because CSS transform overrides the SVG transform="translate(x,y)" attribute and every node jumps out of its subgraph), arrows/edges flow continuously (infinite linear stroke-dashoffset animation applied purely via CSS on the .edgePaths path.flowchart-link selector — that is how mermaid 11 names every edge path, so a single rule animates all arrows; never try to add classes to edge elements after render and never target old mermaid class names, because the selector silently matches nothing and the arrows stay frozen; and never a one-shot draw-on, which freezes dasharray and breaks long edges), a slow glow pulse on important nodes, hover highlight; disable all animations under prefers-reduced-motion.
+- Tag cloud: the chips are links added from the data, one per system, based on the important parts of the app — systems flagged important:true get a ★ and emphasis; every chip (label, title, description) is derived from the data file, never hardcoded.
+- Colors — never the plain default Mermaid theme: dark palette; per-category classDefs (module/class/method/step/effect); a gold classDef for important systems; linkStyle default to color the edges; per-root accent colors in the tag cloud.
+- Must work from file:// (data file loaded via plain <script src>), no build step, no backend.
+
+### 6. Bundled example dataset (the car demo)
+Include a hand-authored sample dataset using car parts as the example domain — do NOT generate an actual demo codebase. The flowcharts and depth levels are examples only; this dataset exists so the viewer works out of the box and can be verified even before the real scan:
+- Root systems: engine, transmission, drivetrain, brakes, suspension, electrical, infotainment, body (~2-3 modules each).
+- Give at least one module classes with methods (e.g. Engine → start, throttle, checkOil, stop) and at least one class with no methods, so the depth auto-adjust is observable.
+- Extend one method to full depth 5: internals (steps) with component effects (e.g. start() → prime fuel pump → battery.ts, wiring.ts).
+- Include clamp demos at every level: a leaf module with no classes (clamps to 1), a method with no steps (clamps to 3), a method with steps but no effects (clamps to 4).
+- Realistic cross-system imports (engine → electrical/battery, brakes → drivetrain/wheels, etc.).
+
+### 7. LLM-based generation system (small projects / no dynamic generation)
+For small projects, or any project that can't support dynamic (regex-scanned) flowchart generation, build the same viewer in static mode — but generate the charts with an LLM instead of a scanner:
+- INFORM THE USER: the page shows a clear banner — "Static mode — flowcharts are generated on demand. This project is too small for the dynamic scanner (or doesn't support regex-based generation)." — and the README says the same. Never build a static system silently.
+- Same viewer, same quality: reuse section 5's viewer — Mermaid rendering, animated/colored charts, depth levels, custom palette — the chart data is produced by an LLM instead of a scanner.
+- Regenerate button: add a "🔄 Regenerate flowcharts" button next to the banner. Clicking it asks for an API key — the user's own key, e.g. Google AI Studio (Gemini 3.1 Flash) — and uses that key to call the LLM and regenerate the flowcharts. The key lives only in the user's browser: never commit it, never send it anywhere except the provider the user chose.
+- Keep it simple: every project is different, so don't over-engineer. The LLM needs to see the code and return the same window.ARCH_DATA JSON contract (section 1); everything else — what you send it, how you prompt it, how you store the result — is your judgment, adapted to the project. If a generation fails, show a clear error and keep the last good chart.
+- The regenerated charts follow the same rules as the scanner's output — same JSON contract, same rendering, same depth behavior. The only difference is who produced the data.
+
+## Phase 2 — Run against the real project and verify
+
+1. Run the scanner on the real project: node scan-and-generate.mjs <project path>. Fix extraction issues you find (this is the point of the examination — the regex rules must match the real code).
+2. Generate js/arch-data.js and open explorer.html. Confirm the real systems appear in the tag cloud and depth levels render.
+3. Verify ALL acceptance criteria below against the real output (the car demo dataset is only the fallback for any criterion that needs a known-good shape).
+
+## Constraints
+- Zero runtime dependencies, zero build step. Zero LLM calls EXCEPT the optional LLM-based generation system (section 7), which uses only a user-provided API key.
+- No fabricated data: module/class/method/import extraction must reflect the scanned files.
+- The data file is the single source of truth — the viewer must not hardcode system names, titles, or star lists.
+- Keep the whole system under ~1,500 lines of source.
+
+## Acceptance criteria (verify all before finishing)
+1. node scan-and-generate.mjs <project path> produces js/arch-data.js and prints a summary line with real system/file counts.
+2. Re-running with no changes is under 200 ms and reuses the cache (log line confirms).
+3. explorer.html opens from disk: tag cloud shows the real systems (and the bundled car demo when no project data exists yet), depth button works.
+4. Level 1 shows modules + import edges; level 2 classes; level 3 methods; level 4 method internals; level 5 component effects.
+5. A system/module with no deeper content clamps the depth control down; selecting a system resets depth to 1.
+6. Clicking a module drills in; breadcrumb returns; search filters.
+7. Opening explorer.html#system=<a real system>&node=<a real module>&depth=5 in a fresh tab renders the drilled view immediately (no interaction needed).
+8. Back/forward and manual hash edits re-render via hashchange.
+9. Works with no console errors.
+10. Diagrams render with animations (staggered node entrance, flowing edges/arrows) and a custom color palette — never the plain default Mermaid theme.
+11. Small projects (or projects where dynamic generation isn't possible) get the LLM-based generation system: the agent explicitly informs the user that only a static flowchart system can be built, the page shows the static-mode banner, and the Regenerate button rebuilds the flowcharts from a user-provided API key (e.g. Google AI Studio / Gemini 3.1 Flash) — the key is never committed to the repo.
+
+## Troubleshooting — if a diagram looks wrong
+Open the browser console first (criterion 9 is zero console errors — an uncaught exception names the exact line). Then:
+- Nodes overlapping, escaping their subgraph boxes, or clipped at the diagram's edge → you animated CSS transform on Mermaid's SVG .node elements; CSS transform overrides the SVG transform="translate(x,y)" attribute, so nodes render in the wrong place. Animate opacity only — never put transform in node keyframes.
+- Edges with a permanent gap or missing middle → a one-shot "draw-on" animation froze stroke-dasharray (fill-mode:both). Use a continuously flowing dash (infinite stroke-dashoffset on .edgePaths path.flowchart-link); never freeze the dasharray.
+- Arrows completely static while the nodes animate → the flow animation was applied to a class mermaid 11 never creates (e.g. the old edge-pattern-dotted name). Mermaid 11 renders every edge as path.flowchart-link inside g.edgePaths — style exactly that selector with the flowing dash; do not post-process the rendered SVG to add classes to edges.
+- Diagram vanishes right after render → the mermaid.render id collides with an id that already exists in the DOM (Mermaid removes that element), or render() ran twice at boot (the concurrent-render guard drops the second render, leaving a blank until interaction). Use a unique render id; call render exactly once at startup.
+- Diagram stuck on "rendering…" or blank → mermaid.render() rejected. Log the rejection and show e.message in the diagram area — never fail silently.
+- Mermaid failed to load → the CDN script is blocked or you're offline. Show a visible fallback message, or vendor the script locally.
+- Long labels / deep-link URLs pushing out of cards → allow wrapping (overflow-wrap:anywhere on code and links).
+- Depth button seems stuck at 2 → auto-adjust by design at the system overview; click into a module to reach depths 3-5.
+- Zoom button appears to do nothing → the zoom class isn't actually applied to the diagram element (a no-op toggle), the zoom uses transform-scale on an overflow:auto container (clips the scaled chart without adding scrollbars), or the button label never switches (it must alternate "🔍 Zoom" ↔ "↩ Reset zoom" on each click). Zoom by growing the SVG width instead.
+- Chart renders but with default colors → the classDef names don't match the classes applied in the diagram source; check both sides.
+
+## Deliverables
+scan-and-generate.mjs, js/arch-data.js (generated), explorer.html, .arch-scan-cache.json (after first run), and a short README.md with run instructions. If the feasibility gate stopped you, deliver a written assessment instead of code.`;
+document.getElementById('prompt-text').value = PROMPT_TEXT;
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const ta = document.getElementById('prompt-text');
+  ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = ok ? '✅ Copied' : 'Select the text and press Ctrl+C';
+  setTimeout(() => { btn.textContent = '📋 Copy prompt to clipboard'; }, 1800);
+});
+
+/* ═══════════════ boot — exactly ONE interactive render ═══════════════ */
+window.addEventListener('load', () => {
+  if (typeof mermaid === 'undefined') { diagramEl.textContent = 'Mermaid failed to load (offline?) — check the CDN link.'; return; }
+  mermaid.initialize({ startOnLoad: false, theme: 'dark', flowchart: { curve: 'basis' } });
+  buildCloud();
+
+  const pipeCode = 'flowchart LR\n' +
+    '  classDef src fill:#16222f,stroke:#4a6a8a,color:#e8f0f8\n' +
+    '  classDef pipe fill:#1a2a3a,stroke:#5a8ab0,color:#cfe4f5\n' +
+    '  classDef out fill:#14202a,stroke:#6a9ac0,color:#b8d8f0\n' +
+    '  src["Your source code"]:::src --> scan["scanner — regex, zero-dep (scan-and-generate.mjs)"]:::pipe\n' +
+    '  scan:::pipe --> data["js/arch-data.js — single data source"]:::pipe\n' +
+    '  data:::pipe --> view["explorer.html — this page (tag cloud · depth button · search · drill · deep links)"]:::out\n' +
+    '  view:::out --> mm["Mermaid 11 — CDN"]:::out';
+  mermaid.render('pipeline-chart', pipeCode).then(r => {
+    const el = document.getElementById('pipeline-diagram');
+    el.innerHTML = r.svg;
+    if (r.bindFunctions) r.bindFunctions(el);
+    el.querySelectorAll('.node').forEach((n, i) => { n.style.animationDelay = (i * 90) + 'ms'; });
+    el.querySelectorAll('.edgePaths path').forEach((p, i) => { p.style.animationDelay = (i * 70) + 'ms'; });
+  }).catch(() => {});
+
+  applyDeepLink();
+  if (!state.sysId && ARCH_DATA.systems.length) {
+    state.sysId = ARCH_DATA.systems[0].id;
+    selectTag(chipsEl.firstChild);
+  }
+  render();   // single render — never call render() again at boot
+});
+</script>
+</body>
+</html>
