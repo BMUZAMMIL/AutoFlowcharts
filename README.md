@@ -149,7 +149,7 @@ A flowchart from code gives you a **map of the city that actually got built**:
 
 ## The Prompt
 
-The complete prompt is embedded at the bottom of this page and includes:
+The complete prompt is below and includes:
 
 - **Phase 0** — Examine the project, judge feasibility
 - **Phase 1** — Build the scanner, generator, viewer, and demo dataset
@@ -179,6 +179,8 @@ It's designed to be **self-contained** — the agent needs nothing else to build
 **A flowchart generated from the code gives you a map of the city that actually got built — so you can optimize the right streets, and never accidentally route a highway through someone's living room.**
 
 ---
+
+## The Prompt
 
 You are an autonomous agent. Your job: build an auto-generating flowchart system for a target project — software that scans a source codebase and produces interactive, depth-controlled architecture flowcharts that never go stale.
 
